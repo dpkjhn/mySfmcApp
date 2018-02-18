@@ -1,0 +1,232 @@
+<input type="file" id="dir-select" webkitdirectory />
+<textarea id="output"></textarea>
+<script type="text/javascript">
+    document.querySelector('#dir-select').onchange = function(e) {
+        var out = [];
+        for (var i = 0, f; f = e.target.files[i]; ++i) {
+            out.push(f.webkitRelativePath);
+        }
+        document.querySelector('#output').textContent = out.join('\n');
+    };
+</script>
+<hr>
+<input type="file" id="file-select" webkitdirectory/>
+<button id="read">Read</button><button id="remove">Rmove</button>
+<div id="list-fs"></div>
+<script type="text/javascript">
+    var origin = window.location.origin;
+    var prevent = function(e) {
+        e.preventDefault();
+    };
+    var handleFile = function(e) {
+        e.stopPropagation();
+        e.preventDefault();
+        var files = !!e.dataTransfer ? e.dataTransfer.files : e.target.files;
+        if (files.length > 100) {
+            alert('It too many!');
+            return false;
+        }
+        Array.prototype.slice.call(files || [], 0).forEach(function(file, i) {
+            // if((/^image\//).test(file.type)){
+            //   var img = document.createElement('IMG');
+            //   img.file = file;
+            //   var url = window.URL.createObjectURL(file);
+            //   img.width = '100';
+            //   img.src = url;
+            //   document.body.appendChild(img);
+            // }
+
+            var name = '',
+                method = '';
+            if (file.name == '.') {
+                name = file.webkitRelativePath.slice(0, -1).split('/').slice(1).join('/');
+                method = 'getDirectory';
+            } else {
+                name = file.webkitRelativePath != "" ? file.webkitRelativePath.split('/').slice(1).join('/') : file.name;
+                method = 'getFile';
+            }
+
+            fs.root[method](
+                name, {
+                    create: true,
+                    exclusive: true
+                },
+                function(fileEntry) {
+                    if (method == 'getFile') {
+                        fileEntry.createWriter(function(fileWriter) {
+
+                            fileWriter.onwriteend = function(num) {
+                                if (num == files.length - 1)
+                                    read();
+                                console.log('Write completed.');
+                            }(i);
+                            fileWriter.onprogress = function(e) {
+
+                            }
+                            fileWriter.onerror = function(e) {
+                                console.log('Write failed: ' + e.toString());
+                            };
+
+                            fileWriter.write(file); // Note: write() can take a File | Blob.
+
+                        }, errorHandler);
+                    }
+                },
+                function(na) {
+                    return function() {
+                        console.log('error', na);
+                    }
+                }(name)
+            );
+        });
+    }
+
+    function deleteEntry(name) {
+        fs.root.getFile(name, {
+            create: false
+        }, function(fileEntry) {
+
+            fileEntry.remove(function() {
+                console.log('File removed.');
+            }, errorHandler);
+
+        }, errorHandler);
+    }
+
+    function read(root, node) {
+        if (!fs) {
+            return;
+        }
+        root = root || fs.root;
+        node = node || filelist;
+        if (node == filelist)
+            filelist.innerHTML = '';
+
+        var dirReader = root.createReader();
+        dirReader.readEntries(function(entries) {
+            if (!entries.length) return
+
+            var fragment = document.createElement('ul');
+            for (var i = 0, entry; entry = entries[i]; ++i) {
+                var img = entry.isDirectory ? '<img src="images/icon-folder.gif">' : '<img src="images/icon-file.gif">';
+                var li = document.createElement('li');
+
+                li.innerHTML = [img, '<a target="_blank" href="filesystem:' + origin + '/persistent' + entry.fullPath + '">', entry.name, '</a>', '--<button>D</button>'].join('');
+
+                fragment.appendChild(li);
+
+                if (entry.isDirectory) {
+                    read(entry, li);
+                }
+            }
+            node.appendChild(fragment);
+        }, errorHandler);
+    }
+
+    var filelist = document.querySelector('#list-fs');
+    var fileSelect = document.querySelector('#file-select');
+
+    function bindListener() {
+        window.addEventListener('drop', handleFile, false);
+        window.addEventListener('dragenter', prevent, false);
+        window.addEventListener('dragleave', prevent, false);
+        window.addEventListener('dragover', prevent, false);
+
+        fileSelect.addEventListener('change', handleFile, false);
+
+        document.getElementById('read').addEventListener('click', function() {
+            read(fs.root, filelist);
+        }, false);
+
+        filelist.addEventListener('click', function(e) {
+            var target = e.target;
+            if (target.tagName == 'BUTTON') {
+                var name = target.previousElementSibling.href.split('temporary')[1];
+                !!name && deleteEntry(name);
+                target.parentNode.parentNode.removeChild(target.parentNode);
+            }
+        }, false)
+
+        document.getElementById('remove').addEventListener('click', function(e) {
+            if (!fs) {
+                return;
+            }
+
+            var dirReader = fs.root.createReader();
+            dirReader.readEntries(function(entries) {
+                for (var i = 0, entry; entry = entries[i]; ++i) {
+                    if (entry.isDirectory) {
+                        entry.removeRecursively(function() {}, errorHandler);
+                    } else {
+                        entry.remove(function() {}, errorHandler);
+                    }
+                }
+                filelist.innerHTML = 'Directory emptied.';
+            }, errorHandler);
+        }, false);
+    }
+
+    function errorHandler(e) {
+        var msg = '';
+
+        switch (e.name) {
+            case FileError.QUOTA_EXCEEDED_ERR:
+                msg = 'QUOTA_EXCEEDED_ERR';
+                break;
+            case FileError.NOT_FOUND_ERR:
+                msg = 'NOT_FOUND_ERR';
+                break;
+            case FileError.SECURITY_ERR:
+                msg = 'SECURITY_ERR';
+                break;
+            case FileError.INVALID_MODIFICATION_ERR:
+                msg = 'INVALID_MODIFICATION_ERR';
+                break;
+            case FileError.INVALID_STATE_ERR:
+                msg = 'INVALID_STATE_ERR';
+                break;
+            default:
+                msg = e.message || e.name;
+                break;
+        };
+
+        console.log('Error: ' + msg);
+    }
+
+    window.webkitRequestFileSystem(window.PERSISTENT, 1024 * 2048, function(fs) {
+        if (!fs) {
+            alert('requestFileSystem failed!');
+            return false;
+        }
+        window.fs = fs;
+        bindListener();
+        read();
+    }, errorHandler);
+
+    navigator.webkitPersistentStorage.requestQuota(1024 * 1024, function(grantedBytes) {
+        console.log(grantedBytes);
+    }, function(e) {
+        console.log('error:', e)
+    })
+
+    function haha() {
+        var path = 'music/genres/jazz/';
+
+        function createDir(rootDirEntry, folders) {
+            // Throw out './' or '/' and move on to prevent something like '/foo/.//bar'.
+            if (folders[0] == '.' || folders[0] == '') {
+                folders = folders.slice(1);
+            }
+            rootDirEntry.getDirectory(folders[0], {
+                create: true
+            }, function(dirEntry) {
+                // Recursively add the new subfolder (if we still have another to create).
+                if (folders.length) {
+                    createDir(dirEntry, folders.slice(1));
+                }
+            }, errorHandler);
+        };
+
+        createDir(fs.root, path.split('/')); // fs.root is a DirectoryEntry.
+    }
+</script>
