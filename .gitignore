@@ -1,3 +1,5 @@
 credentials.*
 !src/
 dist
+node_modules
+.vscode
