@@ -5,14 +5,18 @@ import path from 'path';
 import express from 'express';
 import helmet from 'helmet';
 import bodyParser from 'body-parser';
+import 'babel-polyfill';
 import sfmcEnv from './credentials';
 import SfmcApp from './modules/sfmcapp';
 
-let sfmcEnv = sfmcEnv.sfmcEnv;
+// const sfmcEnv = sfmcCredentials.sfmcEnv;
 
-const middlewares = [bodyParser.urlencoded({
-    extended: true
-}), helmet()];
+const middlewares = [
+    bodyParser.urlencoded({
+        extended: true
+    }),
+    helmet()
+];
 
 const app = express();
 const sfmcapp = new SfmcApp(sfmcEnv.clientId, sfmcEnv.clientSecret);
@@ -42,6 +46,8 @@ app.post('/', (req, res) => {
 });
 
 app.listen(3000, () => {
+    console.log(`I'm alive!!!`);
+
     console.log('listening');
 });
 

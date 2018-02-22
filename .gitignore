@@ -3,3 +3,4 @@ credentials.*
 dist
 node_modules
 .vscode
+testdir

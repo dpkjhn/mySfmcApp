@@ -5,7 +5,9 @@
 // var bodyParser = require('body-parser');
 // var request = require('request');
 // var rp = require('request-promise');
-// var Promise = require('promise');
+// const cb = require('./sfmc-content-builder');
+
+// // var Promise = require('promise');
 
 import bodyParser from 'body-parser';
 import rp from 'request-promise';
