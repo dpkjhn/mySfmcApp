@@ -31,7 +31,7 @@ export default class SfmcApp {
         this.tokenExpiry = 0;
         this.authEndpoint = 'https://auth.exacttargetapis.com';
         this.hostRestEndpoint = 'https://www.exacttargetapis.com';
-        this.version = '0.0.1';
+        this.version = '0.0.2';
         this.catTree = null;
 
         this.requestType = {
